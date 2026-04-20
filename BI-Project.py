@@ -26,15 +26,8 @@ from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
-import warnings
-warnings.filterwarnings("ignore")
-
-sns.set_theme(style="whitegrid")
-plt.rcParams["figure.dpi"] = 120
-
 
 # ── LOAD DATASET ──────────────────────────────────────────────────────────────
-
 df = pd.read_csv("masked_kiva_loans.csv", parse_dates=["date"])
 
 print(f"Dataset loaded: {df.shape[0]:,} rows × {df.shape[1]} columns")
