@@ -16,7 +16,7 @@ print("=== Initial Analysis (EDA) ===")
 
 # check gender
 g = df["borrower_genders"].str.lower()
-df["gender_simple"] = "" # Modified ONLY to avoid TypeError
+df["gender_simple"] = "" 
 has_female = g.str.contains("female", na=False)
 has_male = g.str.contains(r"\bmale\b", na=False)
 df.loc[has_female & has_male, "gender_simple"] = "Mixed"
@@ -78,7 +78,7 @@ plt.savefig('04_initial_timeseries.png')
 plt.close()
 
 
-# PART 2: DATA CLEANING & TRANSFORMATION (Abdallah's Contribution)
+# PART 2: DATA CLEANING & TRANSFORMATION 
 print("\n=== Phase 2: Data Cleaning & Transformation ===")
 
 # 1. Remove Duplicates
@@ -101,9 +101,9 @@ lower = mean_f - (3 * std_f)
 df_clean = df[(df['funded_amount'] >= lower) & (df['funded_amount'] <= upper)].copy()
 print(f"3: Removed {len(df) - len(df_clean)} outliers (Beyond 3 Sigma).")
 
-# 4. Data Transformation (Label Encoding & Date Preparation)
+# 4. Data Transformation (Encoding & Date Preparation)
 df_clean['repayment_encoded'] = df_clean['repayment_interval'].astype('category').cat.codes
-df_clean['date'] = pd.to_datetime(df_clean['date']) # ضروري عشان جراف الـ Time Series الجديد يشتغل صح
+df_clean['date'] = pd.to_datetime(df_clean['date']) 
 print("4: Categorical encoding and date transformation completed.")
 
 # 5. Normalization (Scaling)
