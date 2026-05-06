@@ -18,6 +18,13 @@ import matplotlib.ticker as mticker
 import seaborn as sns
 from sklearn.preprocessing import StandardScaler
 
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+
 # ── Global Style ─────────────────────────────────────────────────────────────
 PALETTE_PRIMARY   = "#C0392B"   # crimson – Kiva brand red
 PALETTE_SECONDARY = "#2C3E50"   # dark navy
@@ -441,4 +448,114 @@ print(f"  Cleaned CSV     : {CLEAN_PATH}")
 print(f"  Ready for       : Power BI import  (Step 4)")
 print(f"                    ML model         (Step 5  — use *_scaled cols)")
 print(f"                    Time series      (Step 6)")
+print("=" * 60)
+
+# ════════════════════════════════════════════════════════════════════════════
+#  STEP 4 — Machine Learning Model
+# ════════════════════════════════════════════════════════════════════════════
+print("\n" + "=" * 60)
+print("  STEP 4 — Machine Learning Model")
+print("=" * 60)
+
+# ── 4.1 Features ───────────────────────────────────────────────────────────
+RAW_FEATURES = [
+    "loan_amount",
+    "term_in_months",
+    "lender_count",
+    "repayment_encoded",
+    "gender_encoded"
+]
+
+SCALED_FEATURES = [
+    "loan_amount_scaled",
+    "term_in_months_scaled",
+    "lender_count_scaled",
+    "repayment_encoded",
+    "gender_encoded"
+]
+
+TARGET = "funded_amount"
+
+X_raw = df_clean[RAW_FEATURES]
+X_sc  = df_clean[SCALED_FEATURES]
+y     = df_clean[TARGET]
+
+# ── 4.2 Split  ──────────────────────────────────────────────────────────────
+X_train_raw, X_test_raw, y_train, y_test = train_test_split(
+    X_raw, y, test_size=0.2, random_state=42
+)
+
+X_train_sc = X_sc.loc[X_train_raw.index]
+X_test_sc  = X_sc.loc[X_test_raw.index]
+
+# ── 4.3 Models  ──────────────────────────────────────────────────────────────
+# ════════════════════════════════════════════════════════════════════════════
+# 1. Linear Regression
+# ════════════════════════════════════════════════════════════════════════════
+lr = LinearRegression()
+lr.fit(X_train_sc, y_train)
+y_pred_lr = lr.predict(X_test_sc)
+
+# ════════════════════════════════════════════════════════════════════════════
+# 2. Polynomial Regression
+# ════════════════════════════════════════════════════════════════════════════
+poly = PolynomialFeatures(degree=2, include_bias=False)
+
+X_train_poly = poly.fit_transform(X_train_sc)
+X_test_poly  = poly.transform(X_test_sc)
+
+poly_model = LinearRegression()
+poly_model.fit(X_train_poly, y_train)
+y_pred_poly = poly_model.predict(X_test_poly)
+
+# ════════════════════════════════════════════════════════════════════════════
+# 3. Decision Tree
+# ════════════════════════════════════════════════════════════════════════════
+dt = DecisionTreeRegressor(max_depth=8, random_state=42)
+dt.fit(X_train_raw, y_train)
+y_pred_dt = dt.predict(X_test_raw)
+
+# ════════════════════════════════════════════════════════════════════════════
+# 4. Random Forest
+# ════════════════════════════════════════════════════════════════════════════
+rf = RandomForestRegressor(n_estimators=100, random_state=42)
+rf.fit(X_train_raw, y_train)
+y_pred_rf = rf.predict(X_test_raw)
+
+# ── 4.4 Evaluation  ──────────────────────────────────────────────────────────────
+print("\n========== Model Evaluation ==========")
+
+models = {
+    "Linear Regression": y_pred_lr,
+    "Polynomial Regression": y_pred_poly,
+    "Decision Tree": y_pred_dt,
+    "Random Forest": y_pred_rf
+}
+
+results = {}
+
+for name, y_pred in models.items():
+    mse  = mean_squared_error(y_test, y_pred)
+    rmse = np.sqrt(mse)
+    mae  = mean_absolute_error(y_test, y_pred)
+    r2   = r2_score(y_test, y_pred)
+
+    results[name] = r2
+
+    print(f"\n--- {name} ---")
+    print(f"MSE  : {mse:.2f}")
+    print(f"RMSE : {rmse:.2f}")
+    print(f"MAE  : {mae:.2f}")
+    print(f"R2   : {r2:.4f}")
+
+# ── 4.5 Comparison  ──────────────────────────────────────────────────────────────
+print("\n========== Model Comparison ==========")
+
+for name, score in results.items():
+    print(f"{name}: R2 = {score:.4f}")
+
+best_model = max(results, key=results.get)
+
+print(f"\nBest Model: {best_model}")
+
 print("=" * 60)
