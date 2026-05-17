@@ -424,7 +424,7 @@ X_train_raw, X_test_raw, y_train, y_test = train_test_split(
     random_state=42
 )
 
-# ── 3 Scaling (AFTER split to avoid data leakage) ──────────────
+# ── 3 Scaling ───────────────────────────────────────────────────
 scale_cols = [
     "loan_amount",
     "term_in_months",
@@ -450,9 +450,7 @@ X_test_sc[scale_cols] = scaler.transform(
 # 1. Linear Regression
 # ════════════════════════════════════════════════════════════════
 lr = LinearRegression()
-
 lr.fit(X_train_sc, y_train)
-
 y_pred_lr = lr.predict(X_test_sc)
 
 # ════════════════════════════════════════════════════════════════
@@ -467,9 +465,7 @@ X_train_poly = poly.fit_transform(X_train_sc)
 X_test_poly  = poly.transform(X_test_sc)
 
 poly_model = LinearRegression()
-
 poly_model.fit(X_train_poly, y_train)
-
 y_pred_poly = poly_model.predict(X_test_poly)
 
 # ════════════════════════════════════════════════════════════════
@@ -479,9 +475,7 @@ dt = DecisionTreeRegressor(
     max_depth=8,
     random_state=42
 )
-
 dt.fit(X_train_raw, y_train)
-
 y_pred_dt = dt.predict(X_test_raw)
 
 # ════════════════════════════════════════════════════════════════
@@ -491,9 +485,7 @@ rf = RandomForestRegressor(
     n_estimators=100,
     random_state=42
 )
-
 rf.fit(X_train_raw, y_train)
-
 y_pred_rf = rf.predict(X_test_raw)
 
 # ── 5 Evaluation ────────────────────────────────────────────────
