@@ -1,4 +1,3 @@
-
 import pandas as pd
 import numpy as np
 import matplotlib
@@ -61,7 +60,7 @@ df["month"] = df["date"].dt.to_period("M")
 print(f"Rows : {len(df):,}")
 print(f"Countries : {df['country'].nunique()}")
 print(f"Sectors : {df['sector'].nunique()}")
-
+print("=" * 60)
 
 # ── STEP 2 — VISUALIZATIONS
 print("\nSTEP 2 — Visualizations")
@@ -295,13 +294,14 @@ plt.plot(
 plt.title("Monthly Funding Trend", fontweight="bold")
 
 save_plot("07_monthly_funding_timeseries.png")
-
+print("=" * 60)
 
 # ── STEP 3 — CLEANING
 print("\nSTEP 3 — Cleaning")
 
 df_clean = df.drop_duplicates().copy()
 
+# Fill missing partner_id
 partner_median = df_clean["partner_id"].median()
 
 df_clean["partner_id"] = (
@@ -309,6 +309,7 @@ df_clean["partner_id"] = (
     .fillna(partner_median)
 )
 
+# Fill categorical missing values
 for c in [
     "borrower_genders",
     "sector",
@@ -317,19 +318,22 @@ for c in [
 ]:
     df_clean[c] = df_clean[c].fillna("Unknown")
 
+# Save before outlier removal
 df_before = df_clean.copy()
 
+# ── Outlier Removal ─────────────────────────────────────────────
 mean_f = df_clean["funded_amount"].mean()
 std_f  = df_clean["funded_amount"].std()
 
-lower = max(0, mean_f - 3*std_f)
-upper = mean_f + 3*std_f
+lower = max(0, mean_f - 3 * std_f)
+upper = mean_f + 3 * std_f
 
 df_clean = df_clean[
     (df_clean["funded_amount"] >= lower) &
     (df_clean["funded_amount"] <= upper)
 ].copy()
 
+# ── Encoding ────────────────────────────────────────────────────
 df_clean["repayment_encoded"] = (
     df_clean["repayment_interval"]
     .astype("category")
@@ -342,24 +346,12 @@ df_clean["gender_encoded"] = (
     .cat.codes
 )
 
-scaler = StandardScaler()
-
-ml_cols = [
-    "loan_amount",
-    "term_in_months",
-    "lender_count"
-]
-
-scaled = scaler.fit_transform(df_clean[ml_cols])
-
-for i, col in enumerate(ml_cols):
-    df_clean[f"{col}_scaled"] = scaled[:, i]
-
+# ── Save Cleaned Dataset ────────────────────────────────────────
 CLEAN_PATH = "kiva_loans_cleaned.csv"
 
 df_clean.to_csv(CLEAN_PATH, index=False)
 
-# 1 ─ Outlier Comparison
+# ── Visualization 1: Outlier Comparison ────────────────────────
 fig, axes = plt.subplots(1, 2, figsize=(13, 6))
 
 sns.boxplot(
@@ -380,7 +372,7 @@ axes[1].set_title("After Outlier Removal")
 
 save_plot("08_outlier_removal_comparison.png")
 
-# 2 ─ Missing Values
+# ── Visualization 2: Missing Values ────────────────────────────
 fig, axes = plt.subplots(1, 2, figsize=(14, 5))
 
 for ax, frame, title in zip(
@@ -405,11 +397,12 @@ for ax, frame, title in zip(
 save_plot("09_missing_values_comparison.png")
 
 print(f"Cleaned rows : {len(df_clean):,}")
-
+print("=" * 60)
 
 # ── STEP 4 — MACHINE LEARNING
 print("\nSTEP 4 — Machine Learning")
 
+# ── 1 Features ──────────────────────────────────────────────────
 RAW_FEATURES = [
     "loan_amount",
     "term_in_months",
@@ -418,20 +411,12 @@ RAW_FEATURES = [
     "gender_encoded"
 ]
 
-SCALED_FEATURES = [
-    "loan_amount_scaled",
-    "term_in_months_scaled",
-    "lender_count_scaled",
-    "repayment_encoded",
-    "gender_encoded"
-]
-
 TARGET = "funded_amount"
 
 X_raw = df_clean[RAW_FEATURES]
-X_sc  = df_clean[SCALED_FEATURES]
-y     = df_clean[TARGET]
+y = df_clean[TARGET]
 
+# ── 2 Split ─────────────────────────────────────────────────────
 X_train_raw, X_test_raw, y_train, y_test = train_test_split(
     X_raw,
     y,
@@ -439,16 +424,44 @@ X_train_raw, X_test_raw, y_train, y_test = train_test_split(
     random_state=42
 )
 
-X_train_sc = X_sc.loc[X_train_raw.index]
-X_test_sc  = X_sc.loc[X_test_raw.index]
+# ── 3 Scaling (AFTER split to avoid data leakage) ──────────────
+scale_cols = [
+    "loan_amount",
+    "term_in_months",
+    "lender_count"
+]
 
-# 1─ Linear Regression
+X_train_sc = X_train_raw.copy()
+X_test_sc  = X_test_raw.copy()
+
+scaler = StandardScaler()
+
+X_train_sc[scale_cols] = scaler.fit_transform(
+    X_train_sc[scale_cols]
+)
+
+X_test_sc[scale_cols] = scaler.transform(
+    X_test_sc[scale_cols]
+)
+
+# ── 4 Models ────────────────────────────────────────────────────
+
+# ════════════════════════════════════════════════════════════════
+# 1. Linear Regression
+# ════════════════════════════════════════════════════════════════
 lr = LinearRegression()
+
 lr.fit(X_train_sc, y_train)
+
 y_pred_lr = lr.predict(X_test_sc)
 
-# 2─ Polynomial Regression
-poly = PolynomialFeatures(degree=2, include_bias=False)
+# ════════════════════════════════════════════════════════════════
+# 2. Polynomial Regression
+# ════════════════════════════════════════════════════════════════
+poly = PolynomialFeatures(
+    degree=2,
+    include_bias=False
+)
 
 X_train_poly = poly.fit_transform(X_train_sc)
 X_test_poly  = poly.transform(X_test_sc)
@@ -459,14 +472,21 @@ poly_model.fit(X_train_poly, y_train)
 
 y_pred_poly = poly_model.predict(X_test_poly)
 
-# 3─ Decision Tree
-dt = DecisionTreeRegressor(max_depth=8, random_state=42)
+# ════════════════════════════════════════════════════════════════
+# 3. Decision Tree
+# ════════════════════════════════════════════════════════════════
+dt = DecisionTreeRegressor(
+    max_depth=8,
+    random_state=42
+)
 
 dt.fit(X_train_raw, y_train)
 
 y_pred_dt = dt.predict(X_test_raw)
 
-# 4─ Random Forest
+# ════════════════════════════════════════════════════════════════
+# 4. Random Forest
+# ════════════════════════════════════════════════════════════════
 rf = RandomForestRegressor(
     n_estimators=100,
     random_state=42
@@ -476,32 +496,41 @@ rf.fit(X_train_raw, y_train)
 
 y_pred_rf = rf.predict(X_test_raw)
 
-def evaluate(name, y_true, y_pred):
-    rmse = np.sqrt(mean_squared_error(y_true, y_pred))
-    mae  = mean_absolute_error(y_true, y_pred)
-    r2   = r2_score(y_true, y_pred)
+# ── 5 Evaluation ────────────────────────────────────────────────
+print("\n========== Model Evaluation ==========")
 
-    print(f"\n{name}")
+models = {
+    "Linear Regression": y_pred_lr,
+    "Polynomial Regression": y_pred_poly,
+    "Decision Tree": y_pred_dt,
+    "Random Forest": y_pred_rf
+}
+
+results = {}
+
+for name, y_pred in models.items():
+
+    mse  = mean_squared_error(y_test, y_pred)
+    rmse = np.sqrt(mse)
+    mae  = mean_absolute_error(y_test, y_pred)
+    r2   = r2_score(y_test, y_pred)
+
+    results[name] = r2
+
+    print(f"\n--- {name} ---")
+    print(f"MSE  : {mse:.2f}")
     print(f"RMSE : {rmse:.2f}")
     print(f"MAE  : {mae:.2f}")
     print(f"R2   : {r2:.4f}")
 
-    return r2
+# ── 6 Comparison ────────────────────────────────────────────────
+print("\n========== Model Comparison ==========")
 
-results = {
-    "Linear Regression":
-        evaluate("Linear Regression", y_test, y_pred_lr),
-
-    "Polynomial Regression":
-        evaluate("Polynomial Regression", y_test, y_pred_poly),
-
-    "Decision Tree":
-        evaluate("Decision Tree", y_test, y_pred_dt),
-
-    "Random Forest":
-        evaluate("Random Forest", y_test, y_pred_rf)
-}
+for name, score in results.items():
+    print(f"{name}: R2 = {score:.4f}")
 
 best_model = max(results, key=results.get)
 
-print(f"\nBest Model : {best_model}")
+print(f"\nBest Model: {best_model}")
+
+print("=" * 60)
